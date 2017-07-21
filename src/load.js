@@ -1,10 +1,9 @@
 /* global Bump */
-/* eslint no-unused-vars: 0*/
 const PIXI = require('pixi.js');
 PIXI.default = PIXI; // because pixi-keyboard is bad
-const keyboard = require('pixi-keyboard');
+const keyboard = require('pixi-keyboard'); // eslint-disable-line no-unused-vars
 const audio = require('pixi-sound');
-const pixiTiled = require('pixi-tiled');
+const pixiTiled = require('pixi-tiled');  // eslint-disable-line no-unused-vars
 const _ = require('lodash');
 
 import { app, smoothie } from './gameInit';
@@ -13,19 +12,18 @@ const resources = app.loader.resources;
 const Sprite = PIXI.Sprite;
 const keys = PIXI.keyboardManager;
 const Key = PIXI.keyboard.Key;
-
-const MOVE_SPEED = 3;
-const GRAVITY = 0.39;
-const FIRST_JUMP_SPEED = -8.5;
-const DOUBLE_JUMP_SPEED = -7;
-
-const STAGE1_START_X = 300;
-const STAGE1_START_Y = app.renderer.view.height - 64;
-
 const bump = new Bump(PIXI);
 
+const MOVE_SPEED = 3;
+const GRAVITY = 0.38;
+const FIRST_JUMP_SPEED = -8;
+const DOUBLE_JUMP_SPEED = -6.75;
+
+let STAGE_START_X = 300;
+let STAGE_START_Y = app.renderer.view.height - 64;
+
 // initialize globals
-let cat, grass, map, collisionTiles, killTiles, goalTiles;
+let cat, map, map2, collisionTiles, killTiles, goalTiles;
 
 // initialize hot keys
 let jump = keys.getHotKey(Key.SHIFT);
@@ -36,6 +34,7 @@ loader
 	.add([
 		'images/cat.png',
 		'maps/stage1.json',
+		'maps/stage2.json'
 	])
 	.on('progress', loadingBarHandler)
 	.load(setup);
@@ -44,40 +43,31 @@ function loadingBarHandler(pixiLoader, resource) {
 	if (resource.url === 'maps/stage1.json') {
 		map = resource.tiledMap;
 		console.log(resource);
-		collisionTiles = _.find(map.children, tiles => tiles.name === 'Collide').children;
-		killTiles = _.find(map.children, tiles => tiles.name === 'Ouch').children;
-		goalTiles = _.find(map.children, tiles => tiles.name === 'Goal').children;
+		getTilesFromMap(map);
+	}
+	if (resource.url === 'maps/stage2.json') {
+		map2 = resource.tiledMap;
 	}
 	document.getElementById('progressBar').style.width = `${pixiLoader.progress}%`;
 }
 
-function setup() {
-	app.stage.addChild(map);
+function getTilesFromMap(tileMap) {
+	collisionTiles = _.find(tileMap.children, tiles => tiles.name === 'Collide').children;
+	killTiles = _.find(tileMap.children, tiles => tiles.name === 'Ouch').children;
+	goalTiles = _.find(tileMap.children, tiles => tiles.name === 'Goal').children;
+}
 
-	cat = new Sprite(resources['images/cat.png'].texture);
-	cat.position.set(STAGE1_START_X, STAGE1_START_Y);
+function setCatPosition() {
+	cat.position.set(STAGE_START_X, STAGE_START_Y);
 	cat.vx = 0;
 	cat.vy = 0;
-	cat.scale.set(0.3, 0.3);
-	cat.anchor.set(0.5, 0.5);
-	cat.inAir = true;
+	cat.inAir = false;
 	cat.hasDoubleJump = true;
 	cat.releasedJump = false;
 	cat.releasedDoubleJump = false;
-	app.stage.addChild(cat);
-
-	smoothie.start();
 }
 
-smoothie.update = function () {
-	keys.update();
-
-	bump.hit(cat, killTiles, false, false, false, () => {
-		cat.position.set(STAGE1_START_X, STAGE1_START_Y);
-	});
-
-	cat.vx = 0;
-	cat.vy += GRAVITY; // constantly fall to help out collision checks
+function checkKeyboard() {
 	if (left.isDown) {
 		cat.vx = -MOVE_SPEED;
 	}
@@ -104,6 +94,33 @@ smoothie.update = function () {
 		cat.vy *= 0.45;
 		cat.releasedJump = true;
 	}
+}
+
+function setup() {
+	app.stage.addChild(map);
+	app.stage.addChild(map2);
+	map2.visible = false;
+
+	cat = new Sprite(resources['images/cat.png'].texture);
+	cat.scale.set(0.3, 0.3);
+	cat.anchor.set(0.5, 0.5);
+	setCatPosition();
+	app.stage.addChild(cat);
+
+	smoothie.start();
+}
+
+smoothie.update = function () {
+	keys.update();
+
+	bump.hit(cat, killTiles, false, false, false, () => {
+		cat.position.set(STAGE_START_X, STAGE_START_Y);
+	});
+
+	cat.vx = 0;
+	cat.vy += GRAVITY; // constantly fall to help out collision checks
+
+	checkKeyboard();
 
 	cat.x += cat.vx;
 	cat.y += cat.vy;
@@ -111,6 +128,15 @@ smoothie.update = function () {
 	if (bump.hit(cat, goalTiles)) {
 		console.log('gooooooal!');
 		smoothie.pause();
+		setTimeout(() => {
+			map.visible = false;
+			getTilesFromMap(map2);
+			STAGE_START_X = 64;
+			STAGE_START_Y = app.renderer.view.height - 64;
+			setCatPosition();
+			map2.visible = true;
+			smoothie.resume();
+		}, 3000);
 	}
 
 	bump.hit(cat, collisionTiles, true, false, false, coll => { // checks if overlapping and prevents it

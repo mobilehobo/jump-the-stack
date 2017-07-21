@@ -2,5 +2,6 @@ node_modules
 .vscode
 *.xcf
 *.tmx
+*.tsx
 public/bundle.js
 public/bundle.js.map
