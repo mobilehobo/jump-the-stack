@@ -2452,6 +2452,10 @@ pixi-sound@^1.4.2:
   dependencies:
     uuid "^3.0.1"
 
+pixi-tiled@^1.2.1:
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/pixi-tiled/-/pixi-tiled-1.2.1.tgz#7307758b6f590e48affcb3cb53ea8a1ea1a9f0a8"
+
 pixi.js@^4.5.3:
   version "4.5.3"
   resolved "https://registry.yarnpkg.com/pixi.js/-/pixi.js-4.5.3.tgz#16948e55b31fb9e7cd73c7c702670471713d4338"

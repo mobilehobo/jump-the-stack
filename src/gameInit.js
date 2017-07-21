@@ -20,7 +20,7 @@ export let smoothie = new Smoothie({
 	engine: PIXI,
 	renderer: app.renderer,
 	root: app.stage,
-	fps: 60,
+	fps: 50,
 	update: update.bind(this)
 });
 
