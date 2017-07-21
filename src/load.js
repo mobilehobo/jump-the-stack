@@ -18,10 +18,13 @@ const GRAVITY = 0.39;
 const FIRST_JUMP_SPEED = -8.5;
 const DOUBLE_JUMP_SPEED = -7;
 
+const STAGE1_START_X = 300;
+const STAGE1_START_Y = app.renderer.view.height - 64;
+
 const bump = new Bump(PIXI);
 
 // initialize globals
-let cat, grass, map, collisionTiles;
+let cat, grass, map, collisionTiles, killTiles, goalTiles;
 
 // initialize hot keys
 let jump = keys.getHotKey(Key.SHIFT);
@@ -39,31 +42,39 @@ loader
 function loadingBarHandler(pixiLoader, resource) {
 	if (resource.url === 'maps/stage1.json') {
 		map = resource.tiledMap;
-		collisionTiles = map.children[0].children;
+		console.log(resource);
+		collisionTiles = map.children[1].children;
+		killTiles = map.children[2].children;
+		goalTiles = map.children[3].children;
 	}
 	document.getElementById('progressBar').style.width = `${pixiLoader.progress}%`;
 }
 
 function setup() {
+	app.stage.addChild(map);
+
 	cat = new Sprite(resources['images/cat.png'].texture);
-	cat.position.set(500, 400);
-	cat.anchor.set(0.5, 0.5);
+	cat.position.set(STAGE1_START_X, STAGE1_START_Y);
 	cat.vx = 0;
 	cat.vy = 0;
-	cat.scale.set(0.4, 0.4);
+	cat.scale.set(0.3, 0.3);
+	cat.anchor.set(0.5, 0.5);
 	cat.inAir = true;
 	cat.hasDoubleJump = true;
 	cat.releasedJump = false;
 	cat.releasedDoubleJump = false;
 	app.stage.addChild(cat);
 
-	app.stage.addChild(map);
-
 	smoothie.start();
 }
 
 smoothie.update = function () {
 	keys.update();
+
+	bump.hit(cat, killTiles, false, false, false, () => {
+		cat.position.set(STAGE1_START_X, STAGE1_START_Y);
+	});
+
 	cat.vx = 0;
 	cat.vy += GRAVITY; // constantly fall to help out collision checks
 	if (left.isDown) {
@@ -96,26 +107,14 @@ smoothie.update = function () {
 	cat.x += cat.vx;
 	cat.y += cat.vy;
 
-	// for (let i = 0; i < collisionTiles.length; i++) {
-	// 	let coll = bump.hit(cat, collisionTiles[i], true);
-	// 	console.log(coll);
-	// 	if (coll === 'bottom') { // checks if overlapping and prevents it
-	// 		cat.inAir = false;
-	// 		cat.hasDoubleJump = true;
-	// 		cat.releasedJump = false;
-	// 		cat.releasedDoubleJump = false;
-	// 		cat.vy = 0;
-	// 	}
-	// 	else if (coll === 'top') {
-	// 		cat.vy *= 0.45;
-	// 	}
-	// 	else if (!coll) {
-	// 		cat.inAir = true;
-	// 	}
-	// }
-	let collide = bump.hit(cat, collisionTiles, true, false, true, (coll, tiles) => {
+	if (bump.hit(cat, goalTiles)) {
+		console.log('gooooooal!');
+		smoothie.pause();
+	}
+
+	bump.hit(cat, collisionTiles, true, false, false, coll => { // checks if overlapping and prevents it
 		console.log(coll);
-		if (coll === 'bottom') { // checks if overlapping and prevents it
+		if (coll === 'bottom') {
 			cat.inAir = false;
 			cat.hasDoubleJump = true;
 			cat.releasedJump = false;
@@ -123,7 +122,7 @@ smoothie.update = function () {
 			cat.vy = 0;
 		}
 		else if (coll === 'top' && cat.vy < 0) {
-			cat.vy *= -0.2;
+			cat.vy *= -0.15;
 		}
 	});
 };

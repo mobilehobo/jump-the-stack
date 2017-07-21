@@ -32,11 +32,11 @@ var Smoothie = (function () {
     this.engine = "";
 
     //If the `renderingEngine` is Pixi, set up Pixi object aliases
-    if (options.engine.ParticleContainer && options.engine.Sprite) {
+    if (options.engine.particles.ParticleContainer && options.engine.Sprite) {
       this.renderingEngine = "pixi";
       this.Container = options.engine.Container;
       this.Sprite = options.engine.Sprite;
-      this.MovieClip = options.engine.extras.MovieClip;
+      this.AnimatedSprite = options.engine.extras.AnimatedSprite;
     }
 
     //Check to make sure the user had supplied a renderer. If you're

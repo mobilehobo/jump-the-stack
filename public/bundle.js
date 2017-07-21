@@ -21137,13 +21137,18 @@ var GRAVITY = 0.39;
 var FIRST_JUMP_SPEED = -8.5;
 var DOUBLE_JUMP_SPEED = -7;
 
+var STAGE1_START_X = 300;
+var STAGE1_START_Y = _gameInit.app.renderer.view.height - 64;
+
 var bump = new Bump(PIXI);
 
 // initialize globals
 var cat = void 0,
     grass = void 0,
     map = void 0,
-    collisionTiles = void 0;
+    collisionTiles = void 0,
+    killTiles = void 0,
+    goalTiles = void 0;
 
 // initialize hot keys
 var jump = keys.getHotKey(Key.SHIFT);
@@ -21155,31 +21160,39 @@ loader.add(['images/cat.png', 'maps/stage1.json']).on('progress', loadingBarHand
 function loadingBarHandler(pixiLoader, resource) {
 	if (resource.url === 'maps/stage1.json') {
 		map = resource.tiledMap;
-		collisionTiles = map.children[0].children;
+		console.log(resource);
+		collisionTiles = map.children[1].children;
+		killTiles = map.children[2].children;
+		goalTiles = map.children[3].children;
 	}
 	document.getElementById('progressBar').style.width = pixiLoader.progress + '%';
 }
 
 function setup() {
+	_gameInit.app.stage.addChild(map);
+
 	cat = new Sprite(resources['images/cat.png'].texture);
-	cat.position.set(500, 400);
-	cat.anchor.set(0.5, 0.5);
+	cat.position.set(STAGE1_START_X, STAGE1_START_Y);
 	cat.vx = 0;
 	cat.vy = 0;
-	cat.scale.set(0.4, 0.4);
+	cat.scale.set(0.3, 0.3);
+	cat.anchor.set(0.5, 0.5);
 	cat.inAir = true;
 	cat.hasDoubleJump = true;
 	cat.releasedJump = false;
 	cat.releasedDoubleJump = false;
 	_gameInit.app.stage.addChild(cat);
 
-	_gameInit.app.stage.addChild(map);
-
 	_gameInit.smoothie.start();
 }
 
 _gameInit.smoothie.update = function () {
 	keys.update();
+
+	bump.hit(cat, killTiles, false, false, false, function () {
+		cat.position.set(STAGE1_START_X, STAGE1_START_Y);
+	});
+
 	cat.vx = 0;
 	cat.vy += GRAVITY; // constantly fall to help out collision checks
 	if (left.isDown) {
@@ -21211,34 +21224,22 @@ _gameInit.smoothie.update = function () {
 	cat.x += cat.vx;
 	cat.y += cat.vy;
 
-	// for (let i = 0; i < collisionTiles.length; i++) {
-	// 	let coll = bump.hit(cat, collisionTiles[i], true);
-	// 	console.log(coll);
-	// 	if (coll === 'bottom') { // checks if overlapping and prevents it
-	// 		cat.inAir = false;
-	// 		cat.hasDoubleJump = true;
-	// 		cat.releasedJump = false;
-	// 		cat.releasedDoubleJump = false;
-	// 		cat.vy = 0;
-	// 	}
-	// 	else if (coll === 'top') {
-	// 		cat.vy *= 0.45;
-	// 	}
-	// 	else if (!coll) {
-	// 		cat.inAir = true;
-	// 	}
-	// }
-	var collide = bump.hit(cat, collisionTiles, true, false, true, function (coll, tiles) {
+	if (bump.hit(cat, goalTiles)) {
+		console.log('gooooooal!');
+		_gameInit.smoothie.pause();
+	}
+
+	bump.hit(cat, collisionTiles, true, false, false, function (coll) {
+		// checks if overlapping and prevents it
 		console.log(coll);
 		if (coll === 'bottom') {
-			// checks if overlapping and prevents it
 			cat.inAir = false;
 			cat.hasDoubleJump = true;
 			cat.releasedJump = false;
 			cat.releasedDoubleJump = false;
 			cat.vy = 0;
 		} else if (coll === 'top' && cat.vy < 0) {
-			cat.vy *= -0.2;
+			cat.vy *= -0.15;
 		}
 	});
 };
@@ -21275,7 +21276,7 @@ var smoothie = exports.smoothie = new Smoothie({
 	engine: PIXI,
 	renderer: app.renderer,
 	root: app.stage,
-	fps: 50,
+	fps: 60,
 	update: update.bind(undefined)
 });
 
@@ -43341,9 +43342,8 @@ module.exports = function() {
 	 }
 
     return function (resource, next) {
-
         // early exit if it is not the right type
-        if (!resource.data || !resource.isJson || !resource.data.layers || !resource.data.tilesets) {
+        if (!resource.data || !(resource.type === 1) || !resource.data.layers || !resource.data.tilesets) {
             return next();
         }
 
