@@ -5,6 +5,7 @@ PIXI.default = PIXI; // because pixi-keyboard is bad
 const keyboard = require('pixi-keyboard');
 const audio = require('pixi-sound');
 const pixiTiled = require('pixi-tiled');
+const _ = require('lodash');
 
 import { app, smoothie } from './gameInit';
 const loader = app.loader;
@@ -43,9 +44,9 @@ function loadingBarHandler(pixiLoader, resource) {
 	if (resource.url === 'maps/stage1.json') {
 		map = resource.tiledMap;
 		console.log(resource);
-		collisionTiles = map.children[1].children;
-		killTiles = map.children[2].children;
-		goalTiles = map.children[3].children;
+		collisionTiles = _.find(map.children, tiles => tiles.name === 'Collide').children;
+		killTiles = _.find(map.children, tiles => tiles.name === 'Ouch').children;
+		goalTiles = _.find(map.children, tiles => tiles.name === 'Goal').children;
 	}
 	document.getElementById('progressBar').style.width = `${pixiLoader.progress}%`;
 }
@@ -114,7 +115,10 @@ smoothie.update = function () {
 
 	bump.hit(cat, collisionTiles, true, false, false, coll => { // checks if overlapping and prevents it
 		console.log(coll);
-		if (coll === 'bottom') {
+		if (coll === 'left' || coll === 'right') {
+			cat.vx = 0;
+		}
+		else if (coll === 'bottom') {
 			cat.inAir = false;
 			cat.hasDoubleJump = true;
 			cat.releasedJump = false;
