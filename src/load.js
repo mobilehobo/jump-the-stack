@@ -1,35 +1,50 @@
 /* global Bump */
+
 const PIXI = require('pixi.js');
 PIXI.default = PIXI; // because pixi-keyboard is bad
-const keyboard = require('pixi-keyboard'); // eslint-disable-line no-unused-vars
+const keyboard = require('pixi-keyboard'); // eslint-disable-line no-unused-vars, this is middleware
 const audio = require('pixi-sound');
-const pixiTiled = require('pixi-tiled');  // eslint-disable-line no-unused-vars
+const pixiTiled = require('pixi-tiled');  // eslint-disable-line no-unused-vars, this is middleware
 const _ = require('lodash');
 
 import { app, smoothie } from './gameInit';
+
+// set convenience variables
 const loader = app.loader;
 const resources = app.loader.resources;
 const Sprite = PIXI.Sprite;
 const keys = PIXI.keyboardManager;
 const Key = PIXI.keyboard.Key;
-const bump = new Bump(PIXI);
 
+// load in bump collisions
+const bump = new Bump(PIXI); // bump is loaded through a script in index.html
+
+// initiailize constants
 const MOVE_SPEED = 3;
 const GRAVITY = 0.38;
 const FIRST_JUMP_SPEED = -8;
 const DOUBLE_JUMP_SPEED = -6.75;
 
-let STAGE_START_X = 300;
-let STAGE_START_Y = app.renderer.view.height - 64;
 
 // initialize globals
-let cat, map, map2, collisionTiles, killTiles, goalTiles;
+let levelStarted = false,
+	startX,
+	startY,
+	cat,
+	map,
+	map2,
+	collisionTiles,
+	killTiles,
+	goalTiles,
+	markerTiles,
+	gateTiles;
 
 // initialize hot keys
 let jump = keys.getHotKey(Key.SHIFT);
 let left = keys.getHotKey(Key.LEFT);
 let right = keys.getHotKey(Key.RIGHT);
 
+// load in assets
 loader
 	.add([
 		'images/cat.png',
@@ -42,7 +57,6 @@ loader
 function loadingBarHandler(pixiLoader, resource) {
 	if (resource.url === 'maps/stage1.json') {
 		map = resource.tiledMap;
-		console.log(resource);
 		getTilesFromMap(map);
 	}
 	if (resource.url === 'maps/stage2.json') {
@@ -55,10 +69,14 @@ function getTilesFromMap(tileMap) {
 	collisionTiles = _.find(tileMap.children, tiles => tiles.name === 'Collide').children;
 	killTiles = _.find(tileMap.children, tiles => tiles.name === 'Ouch').children;
 	goalTiles = _.find(tileMap.children, tiles => tiles.name === 'Goal').children;
+	markerTiles = _.find(tileMap.children, tiles => tiles.name === 'Markers').children;
+	startX = markerTiles[0].x;
+	startY = markerTiles[0].y;
+	gateTiles = _.find(tileMap.children, tiles => tiles.name === 'Gate').children;
 }
 
 function setCatPosition() {
-	cat.position.set(STAGE_START_X, STAGE_START_Y);
+	cat.position.set(startX, startY);
 	cat.vx = 0;
 	cat.vy = 0;
 	cat.inAir = false;
@@ -96,6 +114,19 @@ function checkKeyboard() {
 	}
 }
 
+function changeStages(mapFrom, mapTo) {
+	smoothie.pause();
+	setTimeout(() => {
+		mapFrom.visible = false;
+		getTilesFromMap(mapTo);
+		levelStarted = false;
+		setCatPosition();
+		mapTo.visible = true;
+		smoothie.resume();
+		startCountdown();
+	}, 3000);
+}
+
 function setup() {
 	app.stage.addChild(map);
 	app.stage.addChild(map2);
@@ -108,13 +139,20 @@ function setup() {
 	app.stage.addChild(cat);
 
 	smoothie.start();
+	startCountdown();
+}
+
+function startCountdown() {
+	setTimeout(() => {
+		levelStarted = true;
+	}, 4000);
 }
 
 smoothie.update = function () {
 	keys.update();
 
 	bump.hit(cat, killTiles, false, false, false, () => {
-		cat.position.set(STAGE_START_X, STAGE_START_Y);
+		cat.position.set(startX, startY);
 	});
 
 	cat.vx = 0;
@@ -125,18 +163,13 @@ smoothie.update = function () {
 	cat.x += cat.vx;
 	cat.y += cat.vy;
 
+	if (!levelStarted) {
+		bump.hit(cat, gateTiles, true);
+	}
+
 	if (bump.hit(cat, goalTiles)) {
 		console.log('gooooooal!');
-		smoothie.pause();
-		setTimeout(() => {
-			map.visible = false;
-			getTilesFromMap(map2);
-			STAGE_START_X = 64;
-			STAGE_START_Y = app.renderer.view.height - 64;
-			setCatPosition();
-			map2.visible = true;
-			smoothie.resume();
-		}, 3000);
+		changeStages(map, map2);
 	}
 
 	bump.hit(cat, collisionTiles, true, false, false, coll => { // checks if overlapping and prevents it

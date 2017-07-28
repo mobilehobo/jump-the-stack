@@ -16,7 +16,7 @@ PIXI.utils.sayHello(type);
 
 function update(){}
 
-export let smoothie = new Smoothie({
+export let smoothie = new Smoothie({ // smoothie is loaded through a script in index.html
 	engine: PIXI,
 	renderer: app.renderer,
 	root: app.stage,
