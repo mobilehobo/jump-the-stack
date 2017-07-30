@@ -17,6 +17,7 @@
     "pixi-tiled": "^1.2.1",
     "pixi.js": "^4.5.3",
     "socket.io": "^2.0.3",
+    "socket.io-client": "^2.0.3",
     "volleyball": "^1.4.1"
   },
   "devDependencies": {

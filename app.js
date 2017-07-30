@@ -11,7 +11,42 @@ app.use(express.static(path.join(__dirname, 'node_modules/bootstrap/dist')));
 const server = app.listen(3000, () => {
 	console.log('here on port ' + server.address().port);
 });
+const io = require('socket.io')(server);
 
-app.use('/', (req, res) => {
+app.use('*', (req, res) => {
 	res.sendFile('/home/david/stackathon/index.html');
+});
+
+const connectedPlayers = {};
+
+io.on('connection', socket => {
+	console.log('socket connected!');
+
+	socket.on('gameUpdate', data => {
+		if (data.id) {
+			connectedPlayers[data.id] = data;
+			socket.broadcast.emit('gameUpdate', connectedPlayers);
+		}
+	});
+
+	socket.on('playerConnect', data => {
+		console.log('server data id', data);
+		if (data.id) {
+			connectedPlayers[data.id] = {
+				id: data.id,
+				color: data.color,
+				playerX: data.playerX,
+				playerY: data.playerY,
+				wonGame: data.wonGame
+			};
+			socket.emit('gameUpdate', connectedPlayers);
+			socket.broadcast.emit('gameUpdate', connectedPlayers);
+			console.log(connectedPlayers);
+		}
+	});
+
+	socket.on('disconnect', () => {
+		delete connectedPlayers[socket.id];
+		socket.broadcast.emit('playerDisconnect', socket.id);
+	});
 });
