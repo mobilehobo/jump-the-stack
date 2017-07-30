@@ -20,8 +20,6 @@ app.use('*', (req, res) => {
 const connectedPlayers = {};
 
 io.on('connection', socket => {
-	console.log('socket connected!');
-
 	socket.on('gameUpdate', data => {
 		if (data.id) {
 			connectedPlayers[data.id] = data;
@@ -30,7 +28,6 @@ io.on('connection', socket => {
 	});
 
 	socket.on('playerConnect', data => {
-		console.log('server data id', data);
 		if (data.id) {
 			connectedPlayers[data.id] = {
 				id: data.id,
@@ -41,7 +38,7 @@ io.on('connection', socket => {
 			};
 			socket.emit('gameUpdate', connectedPlayers);
 			socket.broadcast.emit('gameUpdate', connectedPlayers);
-			console.log(connectedPlayers);
+			console.log('players connected', connectedPlayers);
 		}
 	});
 

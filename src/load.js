@@ -26,7 +26,7 @@ const MOVE_SPEED = 3;
 const GRAVITY = 0.38;
 const FIRST_JUMP_SPEED = -8;
 const DOUBLE_JUMP_SPEED = -6.75;
-const UPDATE_INTERVAL = 4;
+const UPDATE_INTERVAL = 2; // (60 / this number) times per second
 const connectedPlayers = {};
 const socket = io(window.location.origin);
 
@@ -35,6 +35,7 @@ let levelStarted = false,
 	sendDataToSocket = UPDATE_INTERVAL,
 	playerWon = false,
 	playerLost = false,
+	setupFinished = false,
 	startX,
 	startY,
 	cat,
@@ -87,10 +88,9 @@ function createPlayerSprite(data) {
 	let newPlayer = connectedPlayers[data.id];
 	newPlayer.scale.set(0.3, 0.3);
 	newPlayer.anchor.set(0.5, 0.5);
-	newPlayer.alpha = 0.4;
+	newPlayer.alpha = 0.3;
 	newPlayer.tint = data.color;
 	resetPlayerPosition(newPlayer);
-	console.log('new', newPlayer);
 	app.stage.addChild(newPlayer);
 }
 
@@ -181,6 +181,8 @@ function setup() {
 	// send out that someone connected
 	socket.emit('playerConnect', getPlayerData());
 
+	setupFinished = true;
+
 	smoothie.start();
 	startCountdown();
 }
@@ -255,26 +257,27 @@ socket.on('connect', () => {
 		delete connectedPlayers[id];
 	});
 
-	// receive data about other players
+	// receive data about other players, only if setup is done
 	socket.on('gameUpdate', data => {
-		console.log('data', data);
-		// if local sprite does not exist, make it
-		for (let player in data) {
-			if (!connectedPlayers[player]) {
-				createPlayerSprite(data[player]);
+		if (setupFinished) {
+			// if local sprite does not exist, make it
+			for (let player in data) {
+				if (!connectedPlayers[player] && player !== socket.id) {
+					createPlayerSprite(data[player]);
+				}
 			}
-		}
 
-		// iterate over every player connected and update the local sprites
-		for (let player in data) {
-			if (data.hasOwnProperty(player) && player !== socket.id) {
-				console.log('play', data[player]);
-				console.log('conn x', connectedPlayers[player].x);
-				connectedPlayers[player].x = data[player].playerX;
-				connectedPlayers[player].y = data[player].playerY;
-				playerLost = data[player].playerWon;
+			// iterate over every player connected and update the local sprites
+			for (let player in data) {
+				if (data.hasOwnProperty(player) && player !== socket.id) {
+					console.log('play', data[player]);
+					console.log('conn x', connectedPlayers[player].x);
+					connectedPlayers[player].x = data[player].playerX;
+					connectedPlayers[player].y = data[player].playerY;
+					playerLost = data[player].playerWon;
+				}
 			}
+			console.log('players', connectedPlayers);
 		}
-		console.log('conn', connectedPlayers);
 	});
 });
