@@ -15,8 +15,11 @@ import { app, smoothie } from './gameInit';
 const loader = app.loader;
 const resources = app.loader.resources;
 const Sprite = PIXI.Sprite;
+const Text = PIXI.Text;
+const Graphics = PIXI.Graphics;
 const keys = PIXI.keyboardManager;
 const Key = PIXI.keyboard.Key;
+const viewBox = app.renderer.view;
 
 // load in bump collisions
 const bump = new Bump(PIXI); // bump is loaded through a script in index.html
@@ -36,16 +39,23 @@ let levelStarted = false,
 	playerWon = false,
 	playerLost = false,
 	setupFinished = false,
+	playerIsHost = false,
+	playerReady = true,
+	lastColl,
 	startX,
 	startY,
 	cat,
-	map,
-	map2,
 	collisionTiles,
 	killTiles,
 	goalTiles,
 	markerTiles,
-	gateTiles;
+	gateTiles,
+	message,
+	startText,
+	startGameBox,
+	readyText,
+	maps = [],
+	currMap;
 
 // initialize hot keys
 let jump = keys.getHotKey(Key.SHIFT);
@@ -64,16 +74,17 @@ loader
 
 function loadingBarHandler(pixiLoader, resource) {
 	if (resource.url === 'maps/stage1.json') {
-		map = resource.tiledMap;
-		getTilesFromMap(map);
+		maps.push(resource.tiledMap);
+		getTilesFromMap(maps[0]);
 	}
 	if (resource.url === 'maps/stage2.json') {
-		map2 = resource.tiledMap;
+		maps.push(resource.tiledMap);
 	}
 	document.getElementById('progressBar').style.width = `${pixiLoader.progress}%`;
 }
 
-function getTilesFromMap(tileMap) {
+function getTilesFromMap() {
+	const tileMap = maps[0];
 	collisionTiles = _.find(tileMap.children, tiles => tiles.name === 'Collide').children;
 	killTiles = _.find(tileMap.children, tiles => tiles.name === 'Ouch').children;
 	goalTiles = _.find(tileMap.children, tiles => tiles.name === 'Goal').children;
@@ -81,6 +92,7 @@ function getTilesFromMap(tileMap) {
 	startX = markerTiles[0].x;
 	startY = markerTiles[0].y;
 	gateTiles = _.find(tileMap.children, tiles => tiles.name === 'Gate').children;
+	currMap = tileMap;
 }
 
 function createPlayerSprite(data) {
@@ -102,6 +114,40 @@ function resetPlayerPosition(player) {
 	player.hasDoubleJump = true;
 	player.releasedJump = false;
 	player.releasedDoubleJump = false;
+}
+
+function makeStartBox() {
+	startText = new Text('Start Race', {
+		fontFamily: 'Arial',
+		fontSize: 32,
+		fill: 'black',
+		align: 'center'
+	});
+	startText.visible = true;
+
+	startGameBox = new Graphics();
+	startGameBox.beginFill(0xFF4500);
+	startGameBox.lineStyle(3, 0x000000);
+	startGameBox.drawRect(0, 0, startText.width, startText.height);
+	startGameBox.endFill();
+	startGameBox.position.set(viewBox.width - startGameBox.width, viewBox.height - startGameBox.height);
+
+	startGameBox.interactiveChildren = false;
+	startGameBox.visible = true;
+
+	startText.position.set(0, 0);
+	startGameBox.addChild(startText);
+
+	startGameBox.interactive = true;
+	startGameBox.buttonMode = true;
+	startGameBox.on('pointerdown', () => {
+		startGameBox.visible = false;
+		startCountdown();
+		readyText = makeTextBox('Ready...');
+		app.stage.addChild(readyText);
+	});
+
+	app.stage.addChild(startGameBox);
 }
 
 function checkKeyboard() {
@@ -133,18 +179,32 @@ function checkKeyboard() {
 	}
 }
 
-function changeStages(mapFrom, mapTo) {
+function changeStages() {
 	smoothie.pause();
 	setTimeout(() => {
-		mapFrom.visible = false;
-		getTilesFromMap(mapTo);
+		currMap.visible = false;
+		app.stage.removeChild(message);
+		maps.shift();
+		getTilesFromMap();
 		levelStarted = false;
 		playerWon = false;
 		resetPlayerPosition(cat);
-		mapTo.visible = true;
+		currMap.visible = true; // currMap changes in getTilesFromMap
 		smoothie.resume();
 		startCountdown();
 	}, 3000);
+}
+
+function makeTextBox(text) {
+	const textBox = new PIXI.Text(text, {
+		fontFamily: 'Arial',
+		fontSize: 32,
+		fill: 'orange',
+		align: 'center'
+	});
+	textBox.anchor.set(0.5, 0.5);
+	textBox.position.set(viewBox.width / 2, viewBox.height / 2);
+	return textBox;
 }
 
 function getPlayerData() {
@@ -153,7 +213,8 @@ function getPlayerData() {
 		color: 0xFF00FF,
 		playerX: cat.x,
 		playerY: cat.y,
-		wonGame: playerWon
+		wonGame: playerWon,
+		ready: playerReady
 	};
 }
 
@@ -164,13 +225,16 @@ function sendPlayerData() {
 function startCountdown() {
 	setTimeout(() => {
 		levelStarted = true;
+		readyText.visible = false;
 	}, 4000);
 }
 
 function setup() {
-	app.stage.addChild(map);
-	app.stage.addChild(map2);
-	map2.visible = false;
+	for (let i = 0; i < maps.length; i++) {
+		maps[i].visible = false;
+		app.stage.addChild(maps[i]);
+	}
+	currMap.visible = true;
 
 	cat = new Sprite(resources['images/cat.png'].texture);
 	cat.scale.set(0.3, 0.3);
@@ -183,11 +247,13 @@ function setup() {
 
 	setupFinished = true;
 
+	console.log('host?', playerIsHost);
+
 	smoothie.start();
-	startCountdown();
 }
 
 smoothie.update = function () {
+
 	sendDataToSocket++;
 	keys.update();
 
@@ -210,23 +276,24 @@ smoothie.update = function () {
 	}
 
 	if (playerLost) {
-		changeStages(map, map2);
+		message = makeTextBox('Better luck next time :(');
+		app.stage.addChild(message);
+		changeStages();
 	}
 
 	// goal collisions
 	if (bump.hit(cat, goalTiles)) {
-		console.log('gooooooal!');
 		playerWon = true;
 		sendPlayerData();
-		changeStages(map, map2);
+		message = makeTextBox('You win! :D');
+		app.stage.addChild(message);
+		changeStages();
 	}
 
 	// ground collisions
 	bump.hit(cat, collisionTiles, true, false, false, coll => { // checks if overlapping and prevents it
-		// console.log(coll);
 		if (coll === 'left' || coll === 'right') {
 			cat.x += 1;
-			cat.vx = 0;
 		}
 		else if (coll === 'bottom') {
 			cat.inAir = false;
@@ -238,6 +305,7 @@ smoothie.update = function () {
 		else if (coll === 'top' && cat.vy < 0) {
 			cat.vy *= -0.15;
 		}
+		lastColl = coll;
 	});
 
 	// prevents sending every frame
@@ -249,12 +317,10 @@ smoothie.update = function () {
 
 // sockets!
 socket.on('connect', () => {
-	console.log('socket connected!');
-
-	// get rid of disconencted players
-	socket.on('playerDisconnect', id => {
-		app.stage.removeChild(connectedPlayers[id]);
-		delete connectedPlayers[id];
+	// tell our client if it's the host
+	socket.on('isHost', data => {
+		playerIsHost = data;
+		makeStartBox();
 	});
 
 	// receive data about other players, only if setup is done
@@ -267,17 +333,20 @@ socket.on('connect', () => {
 				}
 			}
 
-			// iterate over every player connected and update the local sprites
+			// iterate over every player connected and update the player data on server
 			for (let player in data) {
 				if (data.hasOwnProperty(player) && player !== socket.id) {
-					console.log('play', data[player]);
-					console.log('conn x', connectedPlayers[player].x);
 					connectedPlayers[player].x = data[player].playerX;
 					connectedPlayers[player].y = data[player].playerY;
-					playerLost = data[player].playerWon;
+					playerLost = data[player].wonGame;
 				}
 			}
-			console.log('players', connectedPlayers);
 		}
+	});
+
+	// get rid of disconencted players
+	socket.on('playerDisconnect', id => {
+		app.stage.removeChild(connectedPlayers[id]);
+		delete connectedPlayers[id];
 	});
 });

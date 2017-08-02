@@ -29,14 +29,12 @@ io.on('connection', socket => {
 
 	socket.on('playerConnect', data => {
 		if (data.id) {
-			connectedPlayers[data.id] = {
-				id: data.id,
-				color: data.color,
-				playerX: data.playerX,
-				playerY: data.playerY,
-				wonGame: data.wonGame
-			};
+			connectedPlayers[data.id] = data;
+
 			socket.emit('gameUpdate', connectedPlayers);
+			if (Object.keys(connectedPlayers).length === 1) {
+				socket.emit('isHost', true);
+			}
 			socket.broadcast.emit('gameUpdate', connectedPlayers);
 			console.log('players connected', connectedPlayers);
 		}
