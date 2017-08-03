@@ -17,31 +17,47 @@ app.use('*', (req, res) => {
 	res.sendFile('/home/david/stackathon/index.html');
 });
 
-const connectedPlayers = {};
+let connectedPlayers = [];
 
 io.on('connection', socket => {
+	let room;
+
+	socket.on('joinRoom', roomName => {
+		room = roomName;
+		socket.join(roomName);
+	});
+
 	socket.on('gameUpdate', data => {
 		if (data.id) {
-			connectedPlayers[data.id] = data;
-			socket.broadcast.emit('gameUpdate', connectedPlayers);
+			connectedPlayers = connectedPlayers.map(player => player.id === data.id ? data : player);
+			const filteredPlayers = connectedPlayers.filter(player => player.room === room);
+			socket.broadcast.to(room).emit('gameUpdate', filteredPlayers);
 		}
 	});
 
 	socket.on('playerConnect', data => {
 		if (data.id) {
-			connectedPlayers[data.id] = data;
+			connectedPlayers.push(data);
+			const filteredPlayers = connectedPlayers.filter(player => player.room === room);
 
-			socket.emit('gameUpdate', connectedPlayers);
-			if (Object.keys(connectedPlayers).length === 1) {
-				socket.emit('isHost', true);
+			socket.emit('gameUpdate', filteredPlayers);
+			if (filteredPlayers.length === 1) {
+				socket.emit('isHost');
 			}
-			socket.broadcast.emit('gameUpdate', connectedPlayers);
+
+			socket.broadcast.to(room).emit('gameUpdate', filteredPlayers);
 			console.log('players connected', connectedPlayers);
 		}
 	});
 
+	socket.on('gameStart', () => {
+		io.to(room).emit('gameStart');
+	});
+
 	socket.on('disconnect', () => {
-		delete connectedPlayers[socket.id];
-		socket.broadcast.emit('playerDisconnect', socket.id);
+		connectedPlayers = connectedPlayers.filter(player => player.id !== socket.id);
+		socket.broadcast.to(room).emit('playerDisconnect', socket.id);
+		socket.leave(room);
+		console.log('players connected', connectedPlayers);
 	});
 });

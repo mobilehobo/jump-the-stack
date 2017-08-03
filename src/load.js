@@ -39,7 +39,6 @@ let levelStarted = false,
 	playerWon = false,
 	playerLost = false,
 	setupFinished = false,
-	playerIsHost = false,
 	playerReady = true,
 	lastColl,
 	startX,
@@ -142,9 +141,7 @@ function makeStartBox() {
 	startGameBox.buttonMode = true;
 	startGameBox.on('pointerdown', () => {
 		startGameBox.visible = false;
-		startCountdown();
-		readyText = makeTextBox('Ready...');
-		app.stage.addChild(readyText);
+		socket.emit('gameStart');
 	});
 
 	app.stage.addChild(startGameBox);
@@ -214,7 +211,8 @@ function getPlayerData() {
 		playerX: cat.x,
 		playerY: cat.y,
 		wonGame: playerWon,
-		ready: playerReady
+		ready: playerReady,
+		room: window.location.pathname
 	};
 }
 
@@ -226,7 +224,7 @@ function startCountdown() {
 	setTimeout(() => {
 		levelStarted = true;
 		readyText.visible = false;
-	}, 4000);
+	}, 3000);
 }
 
 function setup() {
@@ -246,8 +244,6 @@ function setup() {
 	socket.emit('playerConnect', getPlayerData());
 
 	setupFinished = true;
-
-	console.log('host?', playerIsHost);
 
 	smoothie.start();
 }
@@ -318,29 +314,37 @@ smoothie.update = function () {
 // sockets!
 socket.on('connect', () => {
 	// tell our client if it's the host
-	socket.on('isHost', data => {
-		playerIsHost = data;
+	socket.emit('joinRoom', window.location.pathname);
+
+	socket.on('isHost', () => {
 		makeStartBox();
+	});
+
+	socket.on('gameStart', () => {
+		startCountdown();
+		readyText = makeTextBox('Ready...');
+		app.stage.addChild(readyText);
 	});
 
 	// receive data about other players, only if setup is done
 	socket.on('gameUpdate', data => {
 		if (setupFinished) {
+
 			// if local sprite does not exist, make it
-			for (let player in data) {
-				if (!connectedPlayers[player] && player !== socket.id) {
-					createPlayerSprite(data[player]);
+			data.forEach(player => {
+				if (!connectedPlayers[player.id] && player.id !== socket.id) {
+					createPlayerSprite(player);
 				}
-			}
+			});
 
 			// iterate over every player connected and update the player data on server
-			for (let player in data) {
-				if (data.hasOwnProperty(player) && player !== socket.id) {
-					connectedPlayers[player].x = data[player].playerX;
-					connectedPlayers[player].y = data[player].playerY;
-					playerLost = data[player].wonGame;
+			data.forEach(player => {
+				if (player.id !== socket.id) {
+					connectedPlayers[player.id].x = player.playerX;
+					connectedPlayers[player.id].y = player.playerY;
+					playerLost = player.wonGame;
 				}
-			}
+			});
 		}
 	});
 
