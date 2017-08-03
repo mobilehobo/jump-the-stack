@@ -66,7 +66,8 @@ loader
 	.add([
 		'images/player.png',
 		'maps/stage1.json',
-		'maps/stage2.json'
+		'maps/stage2.json',
+		'maps/stage3.json'
 	])
 	.on('progress', loadingBarHandler)
 	.load(setup);
@@ -76,7 +77,10 @@ function loadingBarHandler(pixiLoader, resource) {
 		maps.push(resource.tiledMap);
 		getTilesFromMap(maps[0]);
 	}
-	if (resource.url === 'maps/stage2.json') {
+	else if (resource.url === 'maps/stage2.json') {
+		maps.push(resource.tiledMap);
+	}
+	else if (resource.url === 'maps/stage3.json') {
 		maps.push(resource.tiledMap);
 	}
 	document.getElementById('progressBar').style.width = `${pixiLoader.progress}%`;
