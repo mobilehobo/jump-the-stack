@@ -40,10 +40,10 @@ let levelStarted = false,
 	playerLost = false,
 	setupFinished = false,
 	playerReady = true,
-	lastColl,
+	color,
 	startX,
 	startY,
-	cat,
+	player,
 	collisionTiles,
 	killTiles,
 	goalTiles,
@@ -64,7 +64,7 @@ let right = keys.getHotKey(Key.RIGHT);
 // load in assets
 loader
 	.add([
-		'images/cat.png',
+		'images/player.png',
 		'maps/stage1.json',
 		'maps/stage2.json'
 	])
@@ -95,9 +95,8 @@ function getTilesFromMap() {
 }
 
 function createPlayerSprite(data) {
-	connectedPlayers[data.id] = new Sprite(resources['images/cat.png'].texture);
+	connectedPlayers[data.id] = new Sprite(resources['images/player.png'].texture);
 	let newPlayer = connectedPlayers[data.id];
-	newPlayer.scale.set(0.3, 0.3);
 	newPlayer.anchor.set(0.5, 0.5);
 	newPlayer.alpha = 0.3;
 	newPlayer.tint = data.color;
@@ -105,14 +104,14 @@ function createPlayerSprite(data) {
 	app.stage.addChild(newPlayer);
 }
 
-function resetPlayerPosition(player) {
-	player.position.set(startX, startY);
-	player.vx = 0;
-	player.vy = 0;
-	player.inAir = false;
-	player.hasDoubleJump = true;
-	player.releasedJump = false;
-	player.releasedDoubleJump = false;
+function resetPlayerPosition(playerObj) {
+	playerObj.position.set(startX, startY);
+	playerObj.vx = 0;
+	playerObj.vy = 0;
+	playerObj.inAir = true;
+	playerObj.hasDoubleJump = true;
+	playerObj.releasedJump = false;
+	playerObj.releasedDoubleJump = false;
 }
 
 function makeStartBox() {
@@ -149,30 +148,30 @@ function makeStartBox() {
 
 function checkKeyboard() {
 	if (left.isDown) {
-		cat.vx = -MOVE_SPEED;
+		player.vx = -MOVE_SPEED;
 	}
 
 	if (right.isDown) {
-		cat.vx = MOVE_SPEED;
+		player.vx = MOVE_SPEED;
 	}
 
-	if (jump.isPressed && !cat.inAir) {
-		cat.inAir = true;
-		cat.vy = FIRST_JUMP_SPEED;
+	if (jump.isPressed && !player.inAir) {
+		player.inAir = true;
+		player.vy = FIRST_JUMP_SPEED;
 	}
-	else if (jump.isPressed && cat.inAir && cat.hasDoubleJump) {
-		cat.vy = DOUBLE_JUMP_SPEED;
-		cat.hasDoubleJump = false;
-	}
-
-	if (jump.isReleased && cat.vy < 0 && !cat.hasDoubleJump && !cat.releasedDoubleJump) {
-		cat.vy *= 0.45;
-		cat.releasedDoubleJump = true;
+	else if (jump.isPressed && player.inAir && player.hasDoubleJump) {
+		player.vy = DOUBLE_JUMP_SPEED;
+		player.hasDoubleJump = false;
 	}
 
-	if (jump.isReleased && cat.vy < 0 && !cat.releasedJump) {
-		cat.vy *= 0.45;
-		cat.releasedJump = true;
+	if (jump.isReleased && player.vy < 0 && !player.hasDoubleJump && !player.releasedDoubleJump) {
+		player.vy *= 0.45;
+		player.releasedDoubleJump = true;
+	}
+
+	if (jump.isReleased && player.vy < 0 && !player.releasedJump) {
+		player.vy *= 0.45;
+		player.releasedJump = true;
 	}
 }
 
@@ -182,10 +181,10 @@ function changeStages() {
 		currMap.visible = false;
 		app.stage.removeChild(message);
 		maps.shift();
-		getTilesFromMap();
+		getTilesFromMap(); // currMap gets re-assigned
 		levelStarted = false;
 		playerWon = false;
-		resetPlayerPosition(cat);
+		resetPlayerPosition(player);
 		currMap.visible = true; // currMap changes in getTilesFromMap
 		smoothie.resume();
 		startCountdown();
@@ -207,9 +206,9 @@ function makeTextBox(text) {
 function getPlayerData() {
 	return {
 		id: socket.id,
-		color: 0xFF00FF,
-		playerX: cat.x,
-		playerY: cat.y,
+		color: color,
+		playerX: player.x,
+		playerY: player.y,
 		wonGame: playerWon,
 		ready: playerReady,
 		room: window.location.pathname
@@ -224,7 +223,14 @@ function startCountdown() {
 	setTimeout(() => {
 		levelStarted = true;
 		readyText.visible = false;
+		let goText = makeTextBox('Go!!!');
+		app.stage.addChild(goText);
+		setTimeout(() => {
+			goText.visible = false;
+		}, 1000);
 	}, 3000);
+	readyText = makeTextBox('Ready...');
+	app.stage.addChild(readyText);
 }
 
 function setup() {
@@ -234,11 +240,12 @@ function setup() {
 	}
 	currMap.visible = true;
 
-	cat = new Sprite(resources['images/cat.png'].texture);
-	cat.scale.set(0.3, 0.3);
-	cat.anchor.set(0.5, 0.5);
-	resetPlayerPosition(cat);
-	app.stage.addChild(cat);
+	player = new Sprite(resources['images/player.png'].texture);
+	player.anchor.set(0.5, 0.5);
+	color = parseInt(document.getElementById('colorPick').value, 16);
+	player.tint = color;
+	resetPlayerPosition(player);
+	app.stage.addChild(player);
 
 	// send out that someone connected
 	socket.emit('playerConnect', getPlayerData());
@@ -249,26 +256,27 @@ function setup() {
 }
 
 smoothie.update = function () {
-
+	color = parseInt(document.getElementById('colorPick').value, 16);
+	player.tint = color;
 	sendDataToSocket++;
 	keys.update();
 
 	// check spike collisions
-	bump.hit(cat, killTiles, false, false, false, () => {
-		cat.position.set(startX, startY);
+	bump.hit(player, killTiles, false, false, false, () => {
+		resetPlayerPosition(player);
 	});
 
-	cat.vx = 0;
-	cat.vy += GRAVITY; // constantly fall to help out collision checks
+	player.vy += GRAVITY;
 
+	player.vx = 0;
 	checkKeyboard();
+	player.x += player.vx;
+	player.y += player.vy;
 
-	cat.x += cat.vx;
-	cat.y += cat.vy;
 
 	// only check for collisions on gate tiles if the level hasn't started yet
 	if (!levelStarted) {
-		bump.hit(cat, gateTiles, true);
+		bump.hit(player, gateTiles, true);
 	}
 
 	if (playerLost) {
@@ -278,7 +286,7 @@ smoothie.update = function () {
 	}
 
 	// goal collisions
-	if (bump.hit(cat, goalTiles)) {
+	if (bump.hit(player, goalTiles)) {
 		playerWon = true;
 		sendPlayerData();
 		message = makeTextBox('You win! :D');
@@ -287,22 +295,31 @@ smoothie.update = function () {
 	}
 
 	// ground collisions
-	bump.hit(cat, collisionTiles, true, false, false, coll => { // checks if overlapping and prevents it
+	bump.hit(player, collisionTiles, true, false, false, coll => { // checks if overlapping and prevents it
 		if (coll === 'left' || coll === 'right') {
-			cat.x += 1;
+			player.x += coll === 'left' ? 1 : -1;
 		}
 		else if (coll === 'bottom') {
-			cat.inAir = false;
-			cat.hasDoubleJump = true;
-			cat.releasedJump = false;
-			cat.releasedDoubleJump = false;
-			cat.vy = 0;
+			player.inAir = false;
+			player.hasDoubleJump = true;
+			player.releasedJump = false;
+			player.releasedDoubleJump = false;
+			player.vy = 0;
 		}
-		else if (coll === 'top' && cat.vy < 0) {
-			cat.vy *= -0.15;
+		else if (coll === 'top' && player.vy < 0) {
+			player.vy *= -0.15;
 		}
-		lastColl = coll;
 	});
+
+	const containColl = bump.contain(player, {
+		x: 0,
+		y: 0,
+		width: viewBox.width,
+		height: viewBox.height
+	});
+	if (containColl && containColl.has('top') && player.vy < 0) {
+		player.vy *= -0.15;
+	}
 
 	// prevents sending every frame
 	if (sendDataToSocket >= UPDATE_INTERVAL) {
@@ -322,8 +339,6 @@ socket.on('connect', () => {
 
 	socket.on('gameStart', () => {
 		startCountdown();
-		readyText = makeTextBox('Ready...');
-		app.stage.addChild(readyText);
 	});
 
 	// receive data about other players, only if setup is done
@@ -331,18 +346,19 @@ socket.on('connect', () => {
 		if (setupFinished) {
 
 			// if local sprite does not exist, make it
-			data.forEach(player => {
-				if (!connectedPlayers[player.id] && player.id !== socket.id) {
-					createPlayerSprite(player);
+			data.forEach(otherPlayer => {
+				if (!connectedPlayers[otherPlayer.id] && otherPlayer.id !== socket.id) {
+					createPlayerSprite(otherPlayer);
 				}
 			});
 
 			// iterate over every player connected and update the player data on server
-			data.forEach(player => {
-				if (player.id !== socket.id) {
-					connectedPlayers[player.id].x = player.playerX;
-					connectedPlayers[player.id].y = player.playerY;
-					playerLost = player.wonGame;
+			data.forEach(otherPlayer => {
+				if (otherPlayer.id !== socket.id) {
+					connectedPlayers[otherPlayer.id].x = otherPlayer.playerX;
+					connectedPlayers[otherPlayer.id].y = otherPlayer.playerY;
+					connectedPlayers[otherPlayer.id].tint = otherPlayer.color;
+					playerLost = otherPlayer.wonGame;
 				}
 			});
 		}

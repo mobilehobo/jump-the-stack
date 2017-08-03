@@ -14,7 +14,7 @@ const server = app.listen(3000, () => {
 const io = require('socket.io')(server);
 
 app.use('*', (req, res) => {
-	res.sendFile('/home/david/stackathon/index.html');
+	res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 let connectedPlayers = [];
@@ -29,7 +29,10 @@ io.on('connection', socket => {
 
 	socket.on('gameUpdate', data => {
 		if (data.id) {
-			connectedPlayers = connectedPlayers.map(player => player.id === data.id ? data : player);
+			connectedPlayers = connectedPlayers.map(player => {
+				return (player.id === data.id) ? data : player;
+			});
+
 			const filteredPlayers = connectedPlayers.filter(player => player.room === room);
 			socket.broadcast.to(room).emit('gameUpdate', filteredPlayers);
 		}
