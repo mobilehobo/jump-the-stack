@@ -1,5 +1,5 @@
 /* global Bump */
-/* eslint id-length: 0 */
+/* eslint id-length: 0 complexity: 0*/
 
 const PIXI = require('pixi.js');
 PIXI.default = PIXI; // because pixi-keyboard is bad
@@ -40,6 +40,7 @@ let levelStarted = false,
 	playerLost = false,
 	setupFinished = false,
 	playerReady = true,
+	lastColl,
 	color,
 	startX,
 	startY,
@@ -58,6 +59,7 @@ let levelStarted = false,
 
 // initialize hot keys
 let jump = keys.getHotKey(Key.SHIFT);
+let jump2 = keys.getHotKey(Key.SPACE);
 let left = keys.getHotKey(Key.LEFT);
 let right = keys.getHotKey(Key.RIGHT);
 
@@ -159,24 +161,62 @@ function checkKeyboard() {
 		player.vx = MOVE_SPEED;
 	}
 
-	if (jump.isPressed && !player.inAir) {
+	if ((jump.isPressed || jump2.isPressed) && !player.inAir) {
 		player.inAir = true;
 		player.vy = FIRST_JUMP_SPEED;
 	}
-	else if (jump.isPressed && player.inAir && player.hasDoubleJump) {
+	else if ((jump.isPressed || jump2.isPressed) && player.inAir && player.hasDoubleJump) {
 		player.vy = DOUBLE_JUMP_SPEED;
 		player.hasDoubleJump = false;
 	}
 
-	if (jump.isReleased && player.vy < 0 && !player.hasDoubleJump && !player.releasedDoubleJump) {
+	if ((jump.isReleased || jump2.isReleased) && player.vy < 0 && !player.hasDoubleJump && !player.releasedDoubleJump) {
 		player.vy *= 0.45;
 		player.releasedDoubleJump = true;
 	}
 
-	if (jump.isReleased && player.vy < 0 && !player.releasedJump) {
+	if ((jump.isReleased || jump2.isReleased) && player.vy < 0 && !player.releasedJump) {
 		player.vy *= 0.45;
 		player.releasedJump = true;
 	}
+}
+
+function checkPlayerCollisionsWithGound() {
+	bump.hit(player, collisionTiles, true, false, false, coll => { // checks if overlapping and prevents it
+		if ((coll === 'left' || coll === 'right') && player.inAir && lastColl !== 'bottom') {
+			player.x += coll === 'left' ? 1 : -1;
+		}
+		else if ((coll === 'left' || coll === 'right') && lastColl === 'bottom') {
+			if (player.vy < 0) {
+				player.vy *= 0.45;
+			}
+			else if (player.vy === 0) {
+				player.vy += GRAVITY;
+			}
+			player.x += coll === 'left' ? 1 : -1;
+		}
+		else if (coll === 'bottom' && !(lastColl === 'left' || lastColl === 'right')) {
+			player.inAir = false;
+			player.hasDoubleJump = true;
+			player.releasedJump = false;
+			player.releasedDoubleJump = false;
+			player.vy = 0;
+		}
+		else if (coll === 'bottom' && (lastColl === 'right' || lastColl === 'left')) {
+			player.x += coll === 'left' ? 1 : -1;
+			player.y += 1;
+		}
+		else if (coll === 'bottom' && !player.inAir) {
+			player.hasDoubleJump = true;
+			player.releasedJump = false;
+			player.releasedDoubleJump = false;
+			player.vy = 0;
+		}
+		else if (coll === 'top' && player.vy < 0) {
+			player.vy *= -0.15;
+		}
+		lastColl = coll;
+	});
 }
 
 function changeStages() {
@@ -259,7 +299,7 @@ function setup() {
 	smoothie.start();
 }
 
-smoothie.update = function () {
+smoothie.update = () => {
 	color = parseInt(document.getElementById('colorPick').value, 16);
 	player.tint = color;
 	sendDataToSocket++;
@@ -270,19 +310,18 @@ smoothie.update = function () {
 		resetPlayerPosition(player);
 	});
 
-	player.vy += GRAVITY;
-
 	player.vx = 0;
+
 	checkKeyboard();
 	player.x += player.vx;
-	player.y += player.vy;
-
+	player.vy += GRAVITY;
 
 	// only check for collisions on gate tiles if the level hasn't started yet
 	if (!levelStarted) {
 		bump.hit(player, gateTiles, true);
 	}
 
+	// If player loases the round
 	if (playerLost) {
 		message = makeTextBox('Better luck next time :(');
 		app.stage.addChild(message);
@@ -299,21 +338,11 @@ smoothie.update = function () {
 	}
 
 	// ground collisions
-	bump.hit(player, collisionTiles, true, false, false, coll => { // checks if overlapping and prevents it
-		if (coll === 'left' || coll === 'right') {
-			player.x += coll === 'left' ? 1 : -1;
-		}
-		else if (coll === 'bottom') {
-			player.inAir = false;
-			player.hasDoubleJump = true;
-			player.releasedJump = false;
-			player.releasedDoubleJump = false;
-			player.vy = 0;
-		}
-		else if (coll === 'top' && player.vy < 0) {
-			player.vy *= -0.15;
-		}
-	});
+	player.y += player.vy;
+	checkPlayerCollisionsWithGound();
+
+
+	// checkPlayerCollisionsWithGound();
 
 	const containColl = bump.contain(player, {
 		x: 0,
