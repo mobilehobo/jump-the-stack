@@ -183,17 +183,22 @@ function checkKeyboard() {
 
 function checkPlayerCollisionsWithGound() {
 	bump.hit(player, collisionTiles, true, false, false, coll => { // checks if overlapping and prevents it
-		if ((coll === 'left' || coll === 'right') && player.inAir && lastColl !== 'bottom') {
-			player.x += coll === 'left' ? 1 : -1;
-		}
-		else if ((coll === 'left' || coll === 'right') && lastColl === 'bottom') {
-			if (player.vy < 0) {
-				player.vy *= 0.45;
+		// console.log(coll);
+		if (coll === 'left' || coll === 'right') {
+			if (coll === 'left') {
+				player.x += 1;
+			} else {
+				player.x -= 1;
 			}
-			else if (player.vy === 0) {
-				player.vy += GRAVITY;
+			if (lastColl === 'bottom') {
+				if (player.vy > 0) {
+					player.vy *= 0.45;
+				}
+				else if (player.vy === 0) {
+					player.vy += GRAVITY;
+				}
 			}
-			player.x += coll === 'left' ? 1 : -1;
+			console.log(player.vy);
 		}
 		else if (coll === 'bottom' && !(lastColl === 'left' || lastColl === 'right')) {
 			player.inAir = false;
@@ -202,15 +207,13 @@ function checkPlayerCollisionsWithGound() {
 			player.releasedDoubleJump = false;
 			player.vy = 0;
 		}
-		else if (coll === 'bottom' && (lastColl === 'right' || lastColl === 'left')) {
-			player.x += coll === 'left' ? 1 : -1;
-			player.y += 1;
-		}
-		else if (coll === 'bottom' && !player.inAir) {
-			player.hasDoubleJump = true;
-			player.releasedJump = false;
-			player.releasedDoubleJump = false;
-			player.vy = 0;
+		else if (coll === 'bottom' && (lastColl === 'left' || lastColl === 'right')) {
+			if (lastColl === 'left') {
+				player.x += 1;
+			} else {
+				player.x -= 1;
+			}
+			player.y += 2;
 		}
 		else if (coll === 'top' && player.vy < 0) {
 			player.vy *= -0.15;
@@ -315,6 +318,7 @@ smoothie.update = () => {
 	checkKeyboard();
 	player.x += player.vx;
 	player.vy += GRAVITY;
+	player.y += player.vy;
 
 	// only check for collisions on gate tiles if the level hasn't started yet
 	if (!levelStarted) {
@@ -338,11 +342,7 @@ smoothie.update = () => {
 	}
 
 	// ground collisions
-	player.y += player.vy;
 	checkPlayerCollisionsWithGound();
-
-
-	// checkPlayerCollisionsWithGound();
 
 	const containColl = bump.contain(player, {
 		x: 0,
