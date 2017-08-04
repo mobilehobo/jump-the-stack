@@ -183,7 +183,6 @@ function checkKeyboard() {
 
 function checkPlayerCollisionsWithGound() {
 	bump.hit(player, collisionTiles, true, false, false, coll => { // checks if overlapping and prevents it
-		// console.log(coll);
 		if (coll === 'left' || coll === 'right') {
 			if (coll === 'left') {
 				player.x += 1;
@@ -198,7 +197,6 @@ function checkPlayerCollisionsWithGound() {
 					player.vy += GRAVITY;
 				}
 			}
-			console.log(player.vy);
 		}
 		else if (coll === 'bottom' && !(lastColl === 'left' || lastColl === 'right')) {
 			player.inAir = false;
@@ -208,11 +206,6 @@ function checkPlayerCollisionsWithGound() {
 			player.vy = 0;
 		}
 		else if (coll === 'bottom' && (lastColl === 'left' || lastColl === 'right')) {
-			if (lastColl === 'left') {
-				player.x += 1;
-			} else {
-				player.x -= 1;
-			}
 			player.y += 2;
 		}
 		else if (coll === 'top' && player.vy < 0) {
