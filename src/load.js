@@ -26,7 +26,7 @@ const bump = new Bump(PIXI); // bump is loaded through a script in index.html
 
 // initiailize constants
 const MOVE_SPEED = 3;
-const GRAVITY = 0.38;
+const GRAVITY = 0.36;
 const FIRST_JUMP_SPEED = -8;
 const DOUBLE_JUMP_SPEED = -6.75;
 const UPDATE_INTERVAL = 2; // (60 / this number) times per second
@@ -69,7 +69,8 @@ loader
 		'images/player.png',
 		'maps/stage1.json',
 		'maps/stage2.json',
-		'maps/stage3.json'
+		'maps/stage3.json',
+		'maps/end.json'
 	])
 	.on('progress', loadingBarHandler)
 	.load(setup);
@@ -83,6 +84,9 @@ function loadingBarHandler(pixiLoader, resource) {
 		maps.push(resource.tiledMap);
 	}
 	else if (resource.url === 'maps/stage3.json') {
+		maps.push(resource.tiledMap);
+	}
+	else if (resource.url === 'maps/end.json') {
 		maps.push(resource.tiledMap);
 	}
 	document.getElementById('progressBar').style.width = `${pixiLoader.progress}%`;
@@ -181,6 +185,30 @@ function checkKeyboard() {
 	}
 }
 
+function makeEndText() {
+	var style = new PIXI.TextStyle({
+		fontFamily: 'Arial',
+		fontSize: 36,
+		fontStyle: 'italic',
+		fontWeight: 'bold',
+		fill: ['#ff00ff', '#00ff00'], // gradient
+		stroke: '#4a1850',
+		strokeThickness: 5,
+		dropShadow: true,
+		dropShadowColor: '#000000',
+		dropShadowBlur: 4,
+		dropShadowAngle: Math.PI / 4,
+		dropShadowDistance: 6,
+	});
+
+	var richText = new Text('Thanks for Playing!!! :D', style);
+	richText.anchor.set(0.5, 0.5);
+	richText.x = viewBox.width / 2;
+	richText.y = 180;
+
+	app.stage.addChild(richText);
+}
+
 function checkPlayerCollisionsWithGound() {
 	bump.hit(player, collisionTiles, true, false, false, coll => { // checks if overlapping and prevents it
 		if (coll === 'left' || coll === 'right') {
@@ -227,7 +255,12 @@ function changeStages() {
 		resetPlayerPosition(player);
 		currMap.visible = true; // currMap changes in getTilesFromMap
 		smoothie.resume();
-		startCountdown();
+		if (maps.length > 1) {
+			startCountdown();
+		}
+		else {
+			makeEndText();
+		}
 	}, 3000);
 }
 
@@ -302,9 +335,9 @@ smoothie.update = () => {
 	keys.update();
 
 	// check spike collisions
-	bump.hit(player, killTiles, false, false, false, () => {
-		resetPlayerPosition(player);
-	});
+	// bump.hit(player, killTiles, false, false, false, () => {
+	// 	resetPlayerPosition(player);
+	// });
 
 	player.vx = 0;
 
