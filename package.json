@@ -13,6 +13,7 @@
     "bootstrap": "^3.3.7",
     "express": "^4.15.3",
     "pixi-keyboard": "^0.9.4",
+    "pixi-particles": "^2.1.5",
     "pixi-sound": "^1.4.2",
     "pixi-tiled": "^1.2.1",
     "pixi.js": "^4.5.3",

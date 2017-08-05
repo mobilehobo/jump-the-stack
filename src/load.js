@@ -4,11 +4,12 @@
 const PIXI = require('pixi.js');
 PIXI.default = PIXI; // because pixi-keyboard is outdated probably
 
-/* eslint-disable no-unused-vars */
 // this is all middleware for PIXI
+/* eslint-disable no-unused-vars */
 const keyboard = require('pixi-keyboard');
 const audio = require('pixi-sound');
 const pixiTiled = require('pixi-tiled');
+const particles = require('pixi-particles');
 /* eslint-enable no-unused-vars */
 
 const _ = require('lodash');
@@ -35,13 +36,12 @@ const MOVE_SPEED = 3;
 const GRAVITY = 0.36;
 const FIRST_JUMP_SPEED = -8;
 const DOUBLE_JUMP_SPEED = -6.75;
-const UPDATE_INTERVAL = 2; // (60 / this number) times per second
 const connectedPlayers = {};
 const socket = io(window.location.origin);
 
 // initialize globals
 let levelStarted = false,
-	sendDataToSocket = UPDATE_INTERVAL,
+	sendDataToSocket = true,
 	playerWon = false,
 	playerLost = false,
 	setupFinished = false,
@@ -61,7 +61,10 @@ let levelStarted = false,
 	startGameBox,
 	readyText,
 	maps = [],
-	currMap;
+	currMap,
+	emitterContainer,
+	emitter,
+	elapsed;
 
 // initialize hot keys
 let jump = keys.getHotKey(Key.SHIFT);
@@ -73,6 +76,7 @@ let right = keys.getHotKey(Key.RIGHT);
 loader
 	.add([
 		'images/player.png',
+		'images/particle.png',
 		'maps/stage1.json',
 		'maps/stage2.json',
 		'maps/stage3.json',
@@ -313,10 +317,14 @@ function startCountdown() {
 		setTimeout(() => {
 			goText.visible = false;
 		}, 1000);
-		sound.play('sounds/race.mp3', {loop: true});
+		sound.play('sounds/race.mp3', { loop: true });
 	}, 3000);
 	readyText = makeTextBox('Ready...');
 	app.stage.addChild(readyText);
+}
+
+function particleEmit() {
+	emitter.emit = true;
 }
 
 function setup() {
@@ -333,6 +341,53 @@ function setup() {
 	resetPlayerPosition(player);
 	app.stage.addChild(player);
 
+	emitterContainer = new PIXI.ParticleContainer();
+	emitterContainer.setProperties({
+		scale: true,
+		position: true,
+		uvs: true,
+		alpha: true
+	});
+	app.stage.addChild(emitterContainer);
+	// make particle emitter
+	emitter = new PIXI.particles.Emitter(
+		emitterContainer,
+		resources['images/particle.png'].texture,
+		{
+			alpha: {
+				start: 0.9,
+				end: 0
+			},
+			scale: {
+				start: 0.8,
+				end: 0.2
+			},
+			speed: {
+				start: 250,
+				end: 40
+			},
+			startRotation: {
+				min: 0,
+				max: 360
+			},
+			lifetime: {
+				min: 0.4,
+				max: 0.6
+			},
+			blendMode: 'normal',
+			frequency: 0.002,
+			emitterLifetime: 0.12,
+			maxParticles: 150,
+			pos: {
+				x: 0,
+				y: 0
+			},
+			addAtBack: false,
+			spawnType: 'point'
+		});
+		emitter.particleConstructor = PIXI.particles.PathParticle;
+	elapsed = Date.now();
+
 	// send out that someone connected
 	socket.emit('playerConnect', getPlayerData());
 
@@ -344,13 +399,15 @@ function setup() {
 smoothie.update = () => {
 	color = parseInt(document.getElementById('colorPick').value, 16);
 	player.tint = color;
-	sendDataToSocket++;
+	sendDataToSocket = !sendDataToSocket;
+	emitter.updateOwnerPos(player.x, player.y);
 	keys.update();
 
 	// check spike collisions
 	bump.hit(player, killTiles, false, false, false, () => {
-		resetPlayerPosition(player);
+		particleEmit();
 		sound.play('sounds/death.mp3');
+		resetPlayerPosition(player);
 	});
 
 	player.vx = 0;
@@ -370,6 +427,8 @@ smoothie.update = () => {
 		message = makeTextBox('Better luck next time :(');
 		app.stage.addChild(message);
 		changeStages();
+		sound.stop('sounds/race.mp3');
+		playerLost = false;
 	}
 
 	// goal collisions
@@ -380,6 +439,7 @@ smoothie.update = () => {
 		sound.stop('sounds/race.mp3');
 		sound.play('sounds/cheer.mp3');
 		app.stage.addChild(message);
+		playerWon = true;
 		changeStages();
 	}
 
@@ -397,10 +457,14 @@ smoothie.update = () => {
 	}
 
 	// prevents sending every frame
-	if (sendDataToSocket >= UPDATE_INTERVAL) {
+	if (sendDataToSocket) {
 		sendPlayerData();
 		sendDataToSocket = 0;
 	}
+
+	let now = Date.now();
+	emitter.update((now - elapsed) * 0.001);
+	elapsed = now;
 };
 
 // sockets!
