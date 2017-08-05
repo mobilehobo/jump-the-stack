@@ -2,12 +2,17 @@
 /* eslint id-length: 0 complexity: 0*/
 
 const PIXI = require('pixi.js');
-PIXI.default = PIXI; // because pixi-keyboard is bad
-const keyboard = require('pixi-keyboard'); // eslint-disable-line no-unused-vars, this is middleware
+PIXI.default = PIXI; // because pixi-keyboard is outdated probably
+
+/* eslint-disable no-unused-vars */
+// this is all middleware for PIXI
+const keyboard = require('pixi-keyboard');
 const audio = require('pixi-sound');
-const pixiTiled = require('pixi-tiled');  // eslint-disable-line no-unused-vars, this is middleware
+const pixiTiled = require('pixi-tiled');
+/* eslint-enable no-unused-vars */
+
 const _ = require('lodash');
-import io from 'socket.io-client';
+const io = require('socket.io-client');
 
 import { app, smoothie } from './gameInit';
 
@@ -20,6 +25,7 @@ const Graphics = PIXI.Graphics;
 const keys = PIXI.keyboardManager;
 const Key = PIXI.keyboard.Key;
 const viewBox = app.renderer.view;
+const sound = PIXI.sound;
 
 // load in bump collisions
 const bump = new Bump(PIXI); // bump is loaded through a script in index.html
@@ -70,7 +76,11 @@ loader
 		'maps/stage1.json',
 		'maps/stage2.json',
 		'maps/stage3.json',
-		'maps/end.json'
+		'maps/end.json',
+		'sounds/cheer.mp3',
+		'sounds/jump.mp3',
+		'sounds/race.mp3',
+		'sounds/death.mp3'
 	])
 	.on('progress', loadingBarHandler)
 	.load(setup);
@@ -168,10 +178,12 @@ function checkKeyboard() {
 	if ((jump.isPressed || jump2.isPressed) && !player.inAir) {
 		player.inAir = true;
 		player.vy = FIRST_JUMP_SPEED;
+		sound.play('sounds/jump.mp3');
 	}
 	else if ((jump.isPressed || jump2.isPressed) && player.inAir && player.hasDoubleJump) {
 		player.vy = DOUBLE_JUMP_SPEED;
 		player.hasDoubleJump = false;
+		sound.play('sounds/jump.mp3');
 	}
 
 	if ((jump.isReleased || jump2.isReleased) && player.vy < 0 && !player.hasDoubleJump && !player.releasedDoubleJump) {
@@ -301,6 +313,7 @@ function startCountdown() {
 		setTimeout(() => {
 			goText.visible = false;
 		}, 1000);
+		sound.play('sounds/race.mp3', {loop: true});
 	}, 3000);
 	readyText = makeTextBox('Ready...');
 	app.stage.addChild(readyText);
@@ -335,9 +348,10 @@ smoothie.update = () => {
 	keys.update();
 
 	// check spike collisions
-	// bump.hit(player, killTiles, false, false, false, () => {
-	// 	resetPlayerPosition(player);
-	// });
+	bump.hit(player, killTiles, false, false, false, () => {
+		resetPlayerPosition(player);
+		sound.play('sounds/death.mp3');
+	});
 
 	player.vx = 0;
 
@@ -363,6 +377,8 @@ smoothie.update = () => {
 		playerWon = true;
 		sendPlayerData();
 		message = makeTextBox('You win! :D');
+		sound.stop('sounds/race.mp3');
+		sound.play('sounds/cheer.mp3');
 		app.stage.addChild(message);
 		changeStages();
 	}
@@ -391,41 +407,40 @@ smoothie.update = () => {
 socket.on('connect', () => {
 	// tell our client if it's the host
 	socket.emit('joinRoom', window.location.pathname);
+});
+socket.on('isHost', () => {
+	makeStartBox();
+});
 
-	socket.on('isHost', () => {
-		makeStartBox();
-	});
+socket.on('gameStart', () => {
+	startCountdown();
+});
 
-	socket.on('gameStart', () => {
-		startCountdown();
-	});
+// receive data about other players, only if setup is done
+socket.on('gameUpdate', data => {
+	if (setupFinished) {
 
-	// receive data about other players, only if setup is done
-	socket.on('gameUpdate', data => {
-		if (setupFinished) {
+		// if local sprite does not exist, make it
+		data.forEach(otherPlayer => {
+			if (!connectedPlayers[otherPlayer.id] && otherPlayer.id !== socket.id) {
+				createPlayerSprite(otherPlayer);
+			}
+		});
 
-			// if local sprite does not exist, make it
-			data.forEach(otherPlayer => {
-				if (!connectedPlayers[otherPlayer.id] && otherPlayer.id !== socket.id) {
-					createPlayerSprite(otherPlayer);
-				}
-			});
+		// iterate over every player connected and update the player data on server
+		data.forEach(otherPlayer => {
+			if (otherPlayer.id !== socket.id) {
+				connectedPlayers[otherPlayer.id].x = otherPlayer.playerX;
+				connectedPlayers[otherPlayer.id].y = otherPlayer.playerY;
+				connectedPlayers[otherPlayer.id].tint = otherPlayer.color;
+				playerLost = otherPlayer.wonGame;
+			}
+		});
+	}
+});
 
-			// iterate over every player connected and update the player data on server
-			data.forEach(otherPlayer => {
-				if (otherPlayer.id !== socket.id) {
-					connectedPlayers[otherPlayer.id].x = otherPlayer.playerX;
-					connectedPlayers[otherPlayer.id].y = otherPlayer.playerY;
-					connectedPlayers[otherPlayer.id].tint = otherPlayer.color;
-					playerLost = otherPlayer.wonGame;
-				}
-			});
-		}
-	});
-
-	// get rid of disconencted players
-	socket.on('playerDisconnect', id => {
-		app.stage.removeChild(connectedPlayers[id]);
-		delete connectedPlayers[id];
-	});
+// get rid of disconencted players
+socket.on('playerDisconnect', id => {
+	app.stage.removeChild(connectedPlayers[id]);
+	delete connectedPlayers[id];
 });
