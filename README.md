@@ -1,4 +1,4 @@
-# jump-the-stack
+# Jump the Stack
 Making a game in pixi.js, with the help of several libraries. Underlying server is node using express.
 
 ### Libraries Used
@@ -14,3 +14,7 @@ Making a game in pixi.js, with the help of several libraries. Underlying server 
 - Race music: https://soundcloud.com/alexrufire
 - Jump/Win sound effects: http://soundbible.com
 - Death sound: https://freesound.org/people/Reitanna/sounds/242664/
+
+#### Known Bugs :)
+- Sometimes gets planted into the ground after a decent-length drop and hitting a right wall
+- Sometimes doesn't load fully when connecting? Not sure if it's a network issue
