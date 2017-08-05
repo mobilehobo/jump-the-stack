@@ -13,3 +13,4 @@ Making a game in pixi.js, with the help of several libraries. Underlying server 
 ### Sources
 - Race music: https://soundcloud.com/alexrufire
 - Jump/Win sound effects: http://soundbible.com
+- Death sound: https://freesound.org/people/Reitanna/sounds/242664/
