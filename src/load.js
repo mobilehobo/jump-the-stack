@@ -261,13 +261,12 @@ function checkPlayerCollisionsWithGound() {
 
 function changeStages() {
 	smoothie.pause();
+	levelStarted = false;
 	setTimeout(() => {
 		currMap.visible = false;
 		app.stage.removeChild(message);
 		maps.shift();
 		getTilesFromMap(); // currMap gets re-assigned
-		levelStarted = false;
-		playerWon = false;
 		resetPlayerPosition(player);
 		currMap.visible = true; // currMap changes in getTilesFromMap
 		smoothie.resume();
@@ -341,7 +340,7 @@ function setup() {
 	resetPlayerPosition(player);
 	app.stage.addChild(player);
 
-	emitterContainer = new PIXI.ParticleContainer();
+	emitterContainer = new PIXI.particles.ParticleContainer();
 	emitterContainer.setProperties({
 		scale: true,
 		position: true,
@@ -422,25 +421,25 @@ smoothie.update = () => {
 		bump.hit(player, gateTiles, true);
 	}
 
-	// If player loases the round
-	if (playerLost) {
-		message = makeTextBox('Better luck next time :(');
-		app.stage.addChild(message);
-		changeStages();
-		sound.stop('sounds/race.mp3');
-		playerLost = false;
-	}
-
 	// goal collisions
 	if (bump.hit(player, goalTiles)) {
 		playerWon = true;
 		sendPlayerData();
 		message = makeTextBox('You win! :D');
+		app.stage.addChild(message);
 		sound.stop('sounds/race.mp3');
 		sound.play('sounds/cheer.mp3');
-		app.stage.addChild(message);
-		playerWon = true;
+		playerWon = false;
 		changeStages();
+	}
+
+	// If player loses the round
+	if (playerLost) {
+		message = makeTextBox('Better luck next time :(');
+		app.stage.addChild(message);
+		sound.stop('sounds/race.mp3');
+		changeStages();
+		playerLost = false;
 	}
 
 	// ground collisions
