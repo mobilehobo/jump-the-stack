@@ -159,12 +159,12 @@ function checkKeyboard() {
 	if ((jump.isPressed || jump2.isPressed) && !player.inAir) {
 		player.inAir = true;
 		player.vy = FIRST_JUMP_SPEED;
-		sound.play('sounds/jump.mp3');
+		sound.play('/sounds/jump.mp3');
 	}
 	else if ((jump.isPressed || jump2.isPressed) && player.inAir && player.hasDoubleJump) {
 		player.vy = DOUBLE_JUMP_SPEED;
 		player.hasDoubleJump = false;
-		sound.play('sounds/jump.mp3');
+		sound.play('/sounds/jump.mp3');
 	}
 
 	if ((jump.isReleased || jump2.isReleased) && player.vy < 0 && !player.hasDoubleJump && !player.releasedDoubleJump) {
