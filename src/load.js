@@ -91,7 +91,6 @@ function loadingBarHandler(pixiLoader, resource) {
 	if (resource.url === 'maps/stage1.json') {
 		resource.tiledMap.levelName = 0;
 		maps.push(resource.tiledMap);
-		console.log(resource);
 		getTilesFromMap();
 	}
 	else if (resource.url === 'maps/stage2.json') {
