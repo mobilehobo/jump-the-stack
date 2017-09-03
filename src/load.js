@@ -365,7 +365,7 @@ smoothie.update = () => {
 	// check spike collisions
 	bump.hit(player, killTiles, false, false, false, () => {
 		particleEmit();
-		sound.play('sounds/death.mp3');
+		sound.play('/sounds/death.mp3');
 		resetPlayerPosition(player);
 	});
 
