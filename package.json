@@ -5,9 +5,10 @@
   "main": "app.js",
   "scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"start": "webpack & node app.js",
+		"start": "node app.js",
 		"start-dev": "webpack -w & nodemon app.js --watch app.js",
-		"build": "webpack"
+		"build": "webpack",
+		"postinstall": "yarn build"
   },
   "author": "mobilehobo",
   "license": "ISC",
