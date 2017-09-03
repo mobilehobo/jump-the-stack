@@ -8,7 +8,7 @@ app.use(volleyball);
 app.use(express.static('public'));
 app.use(express.static(path.join(__dirname, 'node_modules/bootstrap/dist')));
 
-const server = app.listen(3000, () => {
+const server = app.listen(process.env.PORT || 3000, () => {
 	console.log('here on port ' + server.address().port);
 });
 const io = require('socket.io')(server);
