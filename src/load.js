@@ -70,38 +70,38 @@ let right = keys.getHotKey(Key.RIGHT);
 // load in assets
 loader
 	.add([
-		'images/player.png',
-		'images/particle.png',
-		'images/stage0text.png',
-		'images/stage1text.png',
-		'images/stage2text.png',
-		'images/stage3text.png',
-		'maps/stage1.json',
-		'maps/stage2.json',
-		'maps/stage3.json',
-		'maps/end.json',
-		'sounds/cheer.mp3',
-		'sounds/jump.mp3',
-		'sounds/death.mp3'
+		'/images/player.png',
+		'/images/particle.png',
+		'/images/stage0text.png',
+		'/images/stage1text.png',
+		'/images/stage2text.png',
+		'/images/stage3text.png',
+		'/maps/stage1.json',
+		'/maps/stage2.json',
+		'/maps/stage3.json',
+		'/maps/end.json',
+		'/sounds/cheer.mp3',
+		'/sounds/jump.mp3',
+		'/sounds/death.mp3'
 	])
 	.on('progress', loadingBarHandler)
 	.load(setup);
 
 function loadingBarHandler(pixiLoader, resource) {
-	if (resource.url === 'maps/stage1.json') {
+	if (resource.url === '/maps/stage1.json') {
 		resource.tiledMap.levelName = 0;
 		maps.push(resource.tiledMap);
 		getTilesFromMap();
 	}
-	else if (resource.url === 'maps/stage2.json') {
+	else if (resource.url === '/maps/stage2.json') {
 		resource.tiledMap.levelName = 1;
 		maps.push(resource.tiledMap);
 	}
-	else if (resource.url === 'maps/stage3.json') {
+	else if (resource.url === '/maps/stage3.json') {
 		resource.tiledMap.levelName = 2;
 		maps.push(resource.tiledMap);
 	}
-	else if (resource.url === 'maps/end.json') {
+	else if (resource.url === '/maps/end.json') {
 		resource.tiledMap.levelName = 3;
 		maps.push(resource.tiledMap);
 	}
@@ -122,13 +122,13 @@ function getTilesFromMap() {
 	startY = markerTiles[0].y;
 	currMap = tileMap;
 	if (currLevel < maps.length) {
-		textSprite = new Sprite(resources[`images/stage${currLevel}text.png`].texture);
+		textSprite = new Sprite(resources[`/images/stage${currLevel}text.png`].texture);
 		app.stage.addChildAt(textSprite, 0);
 	}
 }
 
 function createPlayerSprite(data) {
-	connectedPlayers[data.id] = new Sprite(resources['images/player.png'].texture);
+	connectedPlayers[data.id] = new Sprite(resources['/images/player.png'].texture);
 	let newPlayer = connectedPlayers[data.id];
 	newPlayer.anchor.set(0.5, 0.5);
 	newPlayer.alpha = 0.3;
@@ -293,7 +293,7 @@ function setup() {
 	}
 	currMap.visible = true;
 
-	player = new Sprite(resources['images/player.png'].texture);
+	player = new Sprite(resources['/images/player.png'].texture);
 	player.anchor.set(0.5, 0.5);
 	color = parseInt(document.getElementById('colorPick').value, 16);
 	player.tint = color;
@@ -311,7 +311,7 @@ function setup() {
 	// make particle emitter
 	emitter = new PIXI.particles.Emitter(
 		emitterContainer,
-		resources['images/particle.png'].texture,
+		resources['/images/particle.png'].texture,
 		{
 			alpha: {
 				start: 0.9,
@@ -382,7 +382,7 @@ smoothie.update = () => {
 		sendPlayerData();
 		message = makeTextBox('You win! :D');
 		app.stage.addChild(message);
-		sound.play('sounds/cheer.mp3');
+		sound.play('/sounds/cheer.mp3');
 		playerWon = false;
 		changeStages();
 	}
