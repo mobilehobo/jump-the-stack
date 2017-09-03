@@ -22,7 +22,6 @@ const loader = app.loader;
 const resources = app.loader.resources;
 const Sprite = PIXI.Sprite;
 const Text = PIXI.Text;
-const Graphics = PIXI.Graphics;
 const keys = PIXI.keyboardManager;
 const Key = PIXI.keyboard.Key;
 const viewBox = app.renderer.view;
@@ -40,12 +39,12 @@ const connectedPlayers = {};
 const socket = io(window.location.origin);
 
 // initialize globals
-let levelStarted = false,
-	sendDataToSocket = true,
+let sendDataToSocket = true,
 	playerWon = false,
-	playerLost = false,
 	setupFinished = false,
 	playerReady = true,
+	currLevel = 0,
+	textSprite,
 	lastColl,
 	color,
 	startX,
@@ -55,11 +54,7 @@ let levelStarted = false,
 	killTiles,
 	goalTiles,
 	markerTiles,
-	gateTiles,
 	message,
-	startText,
-	startGameBox,
-	readyText,
 	maps = [],
 	currMap,
 	emitterContainer,
@@ -77,13 +72,16 @@ loader
 	.add([
 		'images/player.png',
 		'images/particle.png',
+		'images/stage0text.png',
+		'images/stage1text.png',
+		'images/stage2text.png',
+		'images/stage3text.png',
 		'maps/stage1.json',
 		'maps/stage2.json',
 		'maps/stage3.json',
 		'maps/end.json',
 		'sounds/cheer.mp3',
 		'sounds/jump.mp3',
-		'sounds/race.mp3',
 		'sounds/death.mp3'
 	])
 	.on('progress', loadingBarHandler)
@@ -91,31 +89,43 @@ loader
 
 function loadingBarHandler(pixiLoader, resource) {
 	if (resource.url === 'maps/stage1.json') {
+		resource.tiledMap.levelName = 0;
 		maps.push(resource.tiledMap);
-		getTilesFromMap(maps[0]);
+		console.log(resource);
+		getTilesFromMap();
 	}
 	else if (resource.url === 'maps/stage2.json') {
+		resource.tiledMap.levelName = 1;
 		maps.push(resource.tiledMap);
 	}
 	else if (resource.url === 'maps/stage3.json') {
+		resource.tiledMap.levelName = 2;
 		maps.push(resource.tiledMap);
 	}
 	else if (resource.url === 'maps/end.json') {
+		resource.tiledMap.levelName = 3;
 		maps.push(resource.tiledMap);
 	}
 	document.getElementById('progressBar').style.width = `${pixiLoader.progress}%`;
 }
 
 function getTilesFromMap() {
-	const tileMap = maps[0];
+	if (textSprite) {
+		app.stage.removeChild(textSprite);
+		textSprite.destroy();
+	}
+	const tileMap = _.find(maps, map => map.levelName === currLevel);
 	collisionTiles = _.find(tileMap.children, tiles => tiles.name === 'Collide').children;
 	killTiles = _.find(tileMap.children, tiles => tiles.name === 'Ouch').children;
 	goalTiles = _.find(tileMap.children, tiles => tiles.name === 'Goal').children;
 	markerTiles = _.find(tileMap.children, tiles => tiles.name === 'Markers').children;
 	startX = markerTiles[0].x;
 	startY = markerTiles[0].y;
-	gateTiles = _.find(tileMap.children, tiles => tiles.name === 'Gate').children;
 	currMap = tileMap;
+	if (currLevel < maps.length) {
+		textSprite = new Sprite(resources[`images/stage${currLevel}text.png`].texture);
+		app.stage.addChildAt(textSprite, 0);
+	}
 }
 
 function createPlayerSprite(data) {
@@ -136,38 +146,6 @@ function resetPlayerPosition(playerObj) {
 	playerObj.hasDoubleJump = true;
 	playerObj.releasedJump = false;
 	playerObj.releasedDoubleJump = false;
-}
-
-function makeStartBox() {
-	startText = new Text('Start Race', {
-		fontFamily: 'Arial',
-		fontSize: 32,
-		fill: 'black',
-		align: 'center'
-	});
-	startText.visible = true;
-
-	startGameBox = new Graphics();
-	startGameBox.beginFill(0xFF4500);
-	startGameBox.lineStyle(3, 0x000000);
-	startGameBox.drawRect(0, 0, startText.width, startText.height);
-	startGameBox.endFill();
-	startGameBox.position.set(viewBox.width - startGameBox.width, viewBox.height - startGameBox.height);
-
-	startGameBox.interactiveChildren = false;
-	startGameBox.visible = true;
-
-	startText.position.set(0, 0);
-	startGameBox.addChild(startText);
-
-	startGameBox.interactive = true;
-	startGameBox.buttonMode = true;
-	startGameBox.on('pointerdown', () => {
-		startGameBox.visible = false;
-		socket.emit('gameStart');
-	});
-
-	app.stage.addChild(startGameBox);
 }
 
 function checkKeyboard() {
@@ -207,7 +185,7 @@ function makeEndText() {
 		fontSize: 36,
 		fontStyle: 'italic',
 		fontWeight: 'bold',
-		fill: ['#ff00ff', '#00ff00'], // gradient
+		fill: '#ff00ff',
 		stroke: '#4a1850',
 		strokeThickness: 5,
 		dropShadow: true,
@@ -215,9 +193,11 @@ function makeEndText() {
 		dropShadowBlur: 4,
 		dropShadowAngle: Math.PI / 4,
 		dropShadowDistance: 6,
+		wordWrap: true,
+		wordWrapWidth: 400
 	});
 
-	var richText = new Text('Thanks for Playing!!! :D', style);
+	var richText = new Text('Thanks again for Playing! I hope you consider me for the Software Engineer role! :D', style);
 	richText.anchor.set(0.5, 0.5);
 	richText.x = viewBox.width / 2;
 	richText.y = 180;
@@ -261,19 +241,15 @@ function checkPlayerCollisionsWithGound() {
 
 function changeStages() {
 	smoothie.pause();
-	levelStarted = false;
 	setTimeout(() => {
 		currMap.visible = false;
+		currLevel++;
 		app.stage.removeChild(message);
-		maps.shift();
 		getTilesFromMap(); // currMap gets re-assigned
 		resetPlayerPosition(player);
 		currMap.visible = true; // currMap changes in getTilesFromMap
 		smoothie.resume();
-		if (maps.length > 1) {
-			startCountdown();
-		}
-		else {
+		if (currLevel === 3) {
 			makeEndText();
 		}
 	}, 3000);
@@ -305,21 +281,6 @@ function getPlayerData() {
 
 function sendPlayerData() {
 	socket.emit('gameUpdate', getPlayerData());
-}
-
-function startCountdown() {
-	setTimeout(() => {
-		levelStarted = true;
-		readyText.visible = false;
-		let goText = makeTextBox('Go!!!');
-		app.stage.addChild(goText);
-		setTimeout(() => {
-			goText.visible = false;
-		}, 1000);
-		sound.play('sounds/race.mp3', { loop: true });
-	}, 3000);
-	readyText = makeTextBox('Ready...');
-	app.stage.addChild(readyText);
 }
 
 function particleEmit() {
@@ -384,7 +345,7 @@ function setup() {
 			addAtBack: false,
 			spawnType: 'point'
 		});
-		emitter.particleConstructor = PIXI.particles.PathParticle;
+	emitter.particleConstructor = PIXI.particles.PathParticle;
 	elapsed = Date.now();
 
 	// send out that someone connected
@@ -416,30 +377,15 @@ smoothie.update = () => {
 	player.vy += GRAVITY;
 	player.y += player.vy;
 
-	// only check for collisions on gate tiles if the level hasn't started yet
-	if (!levelStarted) {
-		bump.hit(player, gateTiles, true);
-	}
-
 	// goal collisions
 	if (bump.hit(player, goalTiles)) {
 		playerWon = true;
 		sendPlayerData();
 		message = makeTextBox('You win! :D');
 		app.stage.addChild(message);
-		sound.stop('sounds/race.mp3');
 		sound.play('sounds/cheer.mp3');
 		playerWon = false;
 		changeStages();
-	}
-
-	// If player loses the round
-	if (playerLost) {
-		message = makeTextBox('Better luck next time :(');
-		app.stage.addChild(message);
-		sound.stop('sounds/race.mp3');
-		changeStages();
-		playerLost = false;
 	}
 
 	// ground collisions
@@ -471,13 +417,6 @@ socket.on('connect', () => {
 	// tell our client if it's the host
 	socket.emit('joinRoom', window.location.pathname);
 });
-socket.on('isHost', () => {
-	makeStartBox();
-});
-
-socket.on('gameStart', () => {
-	startCountdown();
-});
 
 // receive data about other players, only if setup is done
 socket.on('gameUpdate', data => {
@@ -496,7 +435,6 @@ socket.on('gameUpdate', data => {
 				connectedPlayers[otherPlayer.id].x = otherPlayer.playerX;
 				connectedPlayers[otherPlayer.id].y = otherPlayer.playerY;
 				connectedPlayers[otherPlayer.id].tint = otherPlayer.color;
-				playerLost = otherPlayer.wonGame;
 			}
 		});
 	}
