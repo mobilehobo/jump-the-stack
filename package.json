@@ -7,8 +7,8 @@
 		"test": "echo \"Error: no test specified\" && exit 1",
 		"start": "node app.js",
 		"start-dev": "webpack -w & nodemon app.js --watch app.js",
-		"build": "node node_modules/webpack/bin/webpack.js",
-		"postinstall": "yarn build"
+		"build": "webpack",
+		"postinstall": "npm run build"
 	},
 	"author": "mobilehobo",
 	"license": "ISC",
